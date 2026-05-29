@@ -141,6 +141,6 @@ Run `bin\server.exe` from the **project root** so `data/` and `frontend/` paths 
 
 ## License
 
-MIT
+MayJo
 
 <p align="center"><sub>Made for students who want a plan, not just a to-do list.</sub></p>
