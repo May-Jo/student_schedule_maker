@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Study Planner - Heatmap</title>
+<link rel="stylesheet" href="css/shared.css" />
+<style>
+  main {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 24px 18px 40px;
+  }
+
+  .summary-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: .75rem;
+    margin-bottom: 22px;
+  }
+
+  .calendar-wrap {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    padding: 16px;
+  }
+
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(56px, 1fr));
+    gap: 8px;
+  }
+
+  .day-cell {
+    position: relative;
+    min-width: 56px;
+    min-height: 56px;
+    border: 1px solid rgba(0, 0, 0, .08);
+    border-radius: 6px;
+    cursor: default;
+    display: grid;
+    place-items: center;
+    color: #163042;
+    font-weight: 800;
+  }
+
+  .day-number {
+    position: absolute;
+    top: 5px;
+    left: 6px;
+    color: var(--muted);
+    font-size: .7rem;
+    font-weight: 400;
+  }
+
+  .load-rest { background: #eeeeee; }
+  .load-light { background: #c6dff7; }
+  .load-moderate { background: #7ab5e8; }
+  .load-heavy { background: #2f6f9f; color: #ffffff; }
+  .load-missed { background: #fff3cd; color: #6b4f00; }
+  .exam-day { border-bottom: 4px solid var(--danger); }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+    font-size: .85rem;
+  }
+
+  .swatch {
+    width: 12px;
+    height: 12px;
+    border: 1px solid rgba(0, 0, 0, .12);
+    border-radius: 2px;
+    display: inline-block;
+  }
+
+  .swatch-exam {
+    background: #ffffff;
+    border-bottom: 4px solid var(--danger);
+  }
+
+  .empty-state {
+    min-height: 360px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .empty-state a {
+    color: var(--accent);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  @media (max-width: 700px) {
+    .summary-bar {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .calendar-grid {
+      grid-template-columns: repeat(7, minmax(38px, 1fr));
+      gap: 5px;
+    }
+
+    .day-cell {
+      min-width: 38px;
+      min-height: 46px;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-mark">SP</div>
+  <h1>Study<span>Planner</span></h1>
+  <nav>
+    <a class="nav-link" href="index.html">Planner</a>
+    <a class="nav-link" href="stopwatch.html">Stopwatch</a>
+    <a class="nav-link active" href="heatmap.html">Heatmap</a>
+  </nav>
+</header>
+
+<main id="app"></main>
+
+<script>
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function taskFromBackendText(text) {
+  const raw = String(text);
+  const lower = raw.toLowerCase();
+  if (lower.includes('missed')) return { type: 'missed', text: raw };
+  if (lower === 'break') return { type: 'break', text: raw };
+  if (lower === 'completed') return { type: 'completed', text: raw };
+  if (lower.startsWith('revise:')) return { type: 'revise', text: raw };
+  if (lower.startsWith('study:')) return { type: 'study', text: raw };
+  return { type: 'study', text: raw };
+}
+
+function normalizeBackendSchedule(schedule) {
+  const entries = Object.entries(schedule || {}).sort((a, b) => {
+    const dayA = parseInt(a[0].replace(/\D/g, ''), 10) || 0;
+    const dayB = parseInt(b[0].replace(/\D/g, ''), 10) || 0;
+    return dayA - dayB;
+  });
+  return entries.map(([key, tasks], index) => ({
+    key,
+    day: index + 1,
+    tasks: Array.isArray(tasks) ? tasks.map(taskFromBackendText) : []
+  }));
+}
+
+function parseExamDays(inputText) {
+  const lines = String(inputText || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const examDays = new Set();
+  if (!lines.length) return examDays;
+
+  const first = lines[0].split(/\s+/);
+  const subjectCount = parseInt(first[0], 10) || 0;
+  const totalDays = parseInt(first[1], 10) || 0;
+  let cursor = 1;
+
+  for (let i = 0; i < subjectCount && cursor < lines.length; i++) {
+    const parts = lines[cursor].split(/\s+/);
+    const topicCount = parseInt(parts[1], 10) || 0;
+    const examDay = parseInt(parts[3], 10);
+    if (examDay > 0) examDays.add(totalDays > 0 && examDay > totalDays ? totalDays : examDay);
+    cursor += 1 + topicCount;
+  }
+
+  return examDays;
+}
+
+function cellClassForDay(tasks) {
+  if (tasks.some(task => task.type === 'missed')) return 'load-missed';
+  const count = tasks.filter(task => task.type !== 'break' && task.type !== 'completed').length;
+  if (count === 0) return 'load-rest';
+  if (count <= 2) return 'load-light';
+  if (count <= 4) return 'load-moderate';
+  return 'load-heavy';
+}
+
+function markerForDay(tasks) {
+  if (tasks.some(task => task.type === 'missed')) return 'M';
+  const hasStudy = tasks.some(task => task.type === 'study');
+  const hasRevise = tasks.some(task => task.type === 'revise');
+  if (hasStudy) return 'S';
+  if (hasRevise) return 'R';
+  return '';
+}
+
+function renderEmptyState() {
+  document.getElementById('app').innerHTML = `
+    <div class="empty-state">
+      <div>No schedule yet. Go to the Planner and generate one first.</div>
+      <a href="index.html">Open Planner</a>
+    </div>
+  `;
+}
+
+function renderHeatmap(days, examDays) {
+  const totalDays = days.length;
+  let studyCount = 0;
+  let revisionCount = 0;
+  let busiestDay = 'None';
+  let busiestCount = 0;
+
+  days.forEach(day => {
+    const nonBreak = day.tasks.filter(task => task.type !== 'break' && task.type !== 'completed');
+    if (nonBreak.length > busiestCount) {
+      busiestCount = nonBreak.length;
+      busiestDay = `Day ${day.day}`;
+    }
+    day.tasks.forEach(task => {
+      if (task.type === 'study') studyCount++;
+      if (task.type === 'revise') revisionCount++;
+    });
+  });
+
+  document.getElementById('app').innerHTML = `
+    <section class="summary-bar">
+      <div class="stat-card"><div class="stat-value">${totalDays}</div><div class="stat-label">Total Days</div></div>
+      <div class="stat-card"><div class="stat-value">${studyCount}</div><div class="stat-label">Study Sessions</div></div>
+      <div class="stat-card"><div class="stat-value">${revisionCount}</div><div class="stat-label">Revision Slots</div></div>
+      <div class="stat-card"><div class="stat-value">${busiestDay}</div><div class="stat-label">Busiest Day</div></div>
+    </section>
+    <section class="calendar-wrap">
+      <div class="section-title">Calendar Load</div>
+      <div class="calendar-grid">
+        ${days.map(day => {
+          const tooltip = day.tasks.length
+            ? day.tasks.filter(task => task.type !== 'break').map(task => `- ${task.text}`).join('\n')
+            : 'Rest day';
+          return `
+            <div class="day-cell ${cellClassForDay(day.tasks)} ${examDays.has(day.day) ? 'exam-day' : ''}" title="${escHtml(tooltip)}">
+              <span class="day-number">${day.day}</span>
+              <span>${markerForDay(day.tasks)}</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <div class="legend">
+        <span class="legend-item"><span class="swatch load-rest"></span>Rest</span>
+        <span class="legend-item"><span class="swatch load-light"></span>Light (1-2)</span>
+        <span class="legend-item"><span class="swatch load-moderate"></span>Moderate (3-4)</span>
+        <span class="legend-item"><span class="swatch load-heavy"></span>Heavy (5+)</span>
+        <span class="legend-item"><span class="swatch load-missed"></span>Missed</span>
+        <span class="legend-item"><span class="swatch swatch-exam"></span>Exam day</span>
+      </div>
+    </section>
+  `;
+}
+
+async function init() {
+  try {
+    const [outputResponse, inputResponse] = await Promise.all([
+      fetch('/api/output'),
+      fetch('/api/input')
+    ]);
+    if (!outputResponse.ok) {
+      renderEmptyState();
+      return;
+    }
+
+    const outputPayload = await outputResponse.json();
+    const inputPayload = inputResponse.ok ? await inputResponse.json() : { raw: '' };
+    const days = normalizeBackendSchedule(outputPayload.schedule);
+    if (!days.length) {
+      renderEmptyState();
+      return;
+    }
+
+    renderHeatmap(days, parseExamDays(inputPayload.raw || ''));
+  } catch (err) {
+    renderEmptyState();
+  }
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Build output
+bin/*.exe
+
+# Runtime / generated
+output.json
+state.json
+chat_input.json
+chat_output.json
+
+# Local test copies
+input_old.txt
+input_test_*.txt
+
+# Editor
+.vscode/

@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<!-- Local server: http://localhost:8080/ -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Study Planner</title>
+<link rel="stylesheet" href="css/shared.css" />
+<style>
+  main {
+    display: grid;
+    grid-template-columns: 420px 1fr 320px;
+    min-height: calc(100vh - 67px);
+  }
+
+  .panel-left {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+    padding: 20px;
+  }
+
+  .panel-right {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .row2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .75rem;
+  }
+
+  .subject-cards,
+  .topics-list,
+  .task-list,
+  .progress-list {
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+  }
+
+  .subject-card,
+  .day-card,
+  .input-preview,
+  .progress-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    padding: 14px;
+  }
+
+  .subject-card-header,
+  .output-header,
+  .preview-header,
+  .progress-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .subject-card-header {
+    margin-bottom: .75rem;
+  }
+
+  .subject-number {
+    border-radius: 4px;
+    background: #eeeeee;
+    color: var(--muted);
+    font-size: .8rem;
+    padding: 4px 8px;
+  }
+
+  .remove-btn,
+  .remove-topic {
+    cursor: pointer;
+    border-radius: 4px;
+    color: var(--muted);
+  }
+
+  .remove-btn {
+    border: none;
+    background: none;
+    font-size: 1rem;
+    padding: .15rem .4rem;
+  }
+
+  .remove-topic {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 1rem;
+    padding: 0 .6rem;
+  }
+
+  .remove-btn:hover,
+  .remove-topic:hover {
+    border-color: var(--danger);
+    background: #f5dddd;
+    color: var(--danger);
+  }
+
+  .topic-row {
+    display: flex;
+    gap: .4rem;
+  }
+
+  .diff-group {
+    display: flex;
+    gap: .5rem;
+  }
+
+  .diff-btn {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    font-size: .85rem;
+    padding: 8px;
+    text-align: center;
+  }
+
+  .diff-btn.active-easy,
+  .diff-btn.active-medium,
+  .diff-btn.active-hard,
+  .diff-btn.active-rating {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #ffffff;
+  }
+
+  .add-topic-btn {
+    width: 100%;
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: .85rem;
+    padding: 8px;
+  }
+
+  .output-title {
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .output-actions {
+    display: flex;
+    gap: .5rem;
+  }
+
+  .empty-state {
+    display: flex;
+    min-height: 360px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .8rem;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .empty-icon {
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .75rem;
+  }
+
+  .schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+
+  .day-label {
+    margin-bottom: 10px;
+    color: var(--accent);
+    font-size: .85rem;
+    font-weight: 700;
+  }
+
+  .task-item {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    border-radius: 4px;
+    font-size: .9rem;
+    line-height: 1.3;
+    padding: 6px 8px;
+  }
+
+  .task-dot {
+    width: 6px;
+    height: 6px;
+    flex-shrink: 0;
+    border-radius: 50%;
+  }
+
+  .task-study { background: #eaf4ea; color: #1f5f2f; }
+  .task-revise { background: #e8f1f8; color: #24506d; }
+  .task-break { background: #eeeeee; color: var(--muted); font-style: italic; }
+  .task-missed { background: #fff3cd; color: #6b4f00; }
+  .task-completed { background: #eeeeee; color: var(--muted); }
+
+  .task-study .task-dot { background: var(--success); }
+  .task-revise .task-dot { background: var(--accent); }
+  .task-break .task-dot { background: var(--muted); }
+  .task-missed .task-dot { background: var(--warn); }
+  .task-completed .task-dot { background: var(--muted); }
+
+  pre {
+    max-height: 210px;
+    overflow-y: auto;
+    color: var(--text);
+    font-family: Consolas, monospace;
+    font-size: .85rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+  }
+
+  .progress-check {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+  }
+
+  .progress-check input {
+    width: auto;
+  }
+
+  .confidence {
+    display: none;
+    margin-top: .65rem;
+    padding-left: 1.4rem;
+  }
+
+  .confidence.visible {
+    display: block;
+  }
+
+  .panel-chat {
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 71px);
+    background: radial-gradient(circle at top right, rgba(255,255,255,.6), transparent 35%), var(--surface);
+  }
+
+  .chat-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 16px 0;
+  }
+
+  .chat-subtitle {
+    color: var(--muted);
+    font-size: .86rem;
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+
+  .chat-status {
+    color: var(--accent);
+    font-size: .82rem;
+    font-weight: 700;
+    white-space: nowrap;
+    align-self: center;
+  }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    scroll-behavior: smooth;
+  }
+
+  .chat-bubble {
+    border-radius: 18px;
+    padding: 14px 16px;
+    max-width: 92%;
+    font-size: .93rem;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    box-shadow: 0 16px 35px rgba(15,23,42,0.06);
+  }
+
+  .bubble-user {
+    background: linear-gradient(135deg, #d9eefc, #c8e4f6);
+    color: #0f172a;
+    align-self: flex-end;
+    border-bottom-right-radius: 6px;
+  }
+
+  .bubble-bot {
+    background: linear-gradient(135deg, #ffffff, #f6f8fc);
+    color: #0f172a;
+    align-self: flex-start;
+    border-bottom-left-radius: 6px;
+  }
+
+  .chat-bubble.typing {
+    position: relative;
+    min-height: 40px;
+    padding-bottom: 22px;
+  }
+
+  .chat-bubble.typing::after {
+    content: '';
+    display: block;
+    width: 1.4rem;
+    height: 1.4rem;
+    background: radial-gradient(circle, rgba(0,0,0,.25) 20%, transparent 20% 40%);
+    background-size: 6px 6px;
+    border-radius: 50%;
+    margin-top: 6px;
+    animation: chat-dots 1.2s linear infinite;
+  }
+
+  .chat-bubble a {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  .chat-bubble code {
+    display: inline-block;
+    padding: 2px 5px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.06);
+    color: var(--text);
+    font-family: Consolas, monospace;
+  }
+
+  .md-list-item {
+    padding-left: 8px;
+    margin-bottom: 4px;
+    color: var(--text);
+  }
+
+  .day-card {
+    border: none;
+    border-radius: 18px;
+    box-shadow: 0 20px 40px rgba(15,23,42,0.05);
+    padding: 18px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.96), #f8fbff);
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+
+  .day-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 24px 50px rgba(15,23,42,0.08);
+  }
+
+  .task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .empty-day {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: 10px 12px;
+    border-radius: 999px;
+    border: 1px dashed var(--border);
+    background: rgba(94, 114, 228, 0.08);
+    color: var(--muted);
+    font-size: .85rem;
+  }
+
+  .progress-card {
+    display: flex;
+    flex-direction: column;
+    gap: .9rem;
+    border: none;
+    background: linear-gradient(180deg, #ffffff, #f8fbff);
+    box-shadow: 0 18px 35px rgba(15,23,42,0.05);
+    padding: 18px;
+  }
+
+  .progress-header {
+    align-items: flex-start;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+  }
+
+  .progress-item {
+    border: 1px solid rgba(15,23,42,0.08);
+    border-radius: 12px;
+    background: #ffffff;
+    padding: 12px 14px;
+  }
+
+  @keyframes chat-dots {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(4px); }
+    50% { transform: translateX(8px); }
+    75% { transform: translateX(4px); }
+    100% { transform: translateX(0); }
+  }
+
+  .chat-thinking {
+    font-size: .8rem;
+    color: var(--muted);
+    font-style: italic;
+    padding: 8px 10px;
+    align-self: flex-start;
+  }
+
+  .chat-input-row {
+    border-top: 1px solid var(--border);
+    padding: 12px 14px;
+    display: flex;
+    gap: 10px;
+  }
+
+  @media (max-width: 860px) {
+    main {
+      grid-template-columns: 1fr;
+    }
+
+    .panel-left {
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stats-row {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .panel-chat {
+      display: none;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-mark">SP</div>
+  <h1>Study<span>Planner</span></h1>
+  <nav>
+    <a class="nav-link active" href="index.html">Planner</a>
+    <a class="nav-link" href="stopwatch.html">Stopwatch</a>
+    <a class="nav-link" href="heatmap.html">Heatmap</a>
+  </nav>
+</header>
+
+<main>
+  <section class="panel-left">
+    <div>
+      <div class="section-title">Settings</div>
+      <div class="row2">
+        <div class="field">
+          <label for="totalDays">Total Study Days</label>
+          <input type="number" id="totalDays" value="10" min="1" max="100" />
+        </div>
+        <div class="field">
+          <label for="sessionsPerDay">Sessions/day</label>
+          <input type="number" id="sessionsPerDay" value="2" min="1" max="20" />
+        </div>
+        <div class="field">
+          <label for="missedDays">Missed Days</label>
+          <input type="text" id="missedDays" placeholder="e.g. 3,5" />
+        </div>
+        <div class="field">
+          <label>Planning Mode</label>
+          <div style="font-size:.85rem;color:var(--muted);padding:.55rem 0">even spread + priority</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Learning Profile</div>
+      <div class="row2">
+        <div class="field" style="grid-column: 1 / -1">
+          <label>Study Style</label>
+          <div class="diff-group" id="studyStyleGroup" data-value="2">
+            <button class="diff-btn" type="button" data-style="1" onclick="setStudyStyle(1)">Cramming</button>
+            <button class="diff-btn active-medium" type="button" data-style="2" onclick="setStudyStyle(2)">Balanced</button>
+            <button class="diff-btn" type="button" data-style="3" onclick="setStudyStyle(3)">Gradual</button>
+          </div>
+        </div>
+        <div class="field" style="grid-column: 1 / -1">
+          <label>Peak Hours</label>
+          <div class="diff-group" id="peakHoursGroup" data-value="1">
+            <button class="diff-btn active-easy" type="button" data-peak="1" onclick="setPeakHours(1)">Morning</button>
+            <button class="diff-btn" type="button" data-peak="2" onclick="setPeakHours(2)">Evening</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="focusLimit">Focus Limit (topics before break)</label>
+          <input type="number" id="focusLimit" value="2" min="1" max="5" />
+        </div>
+        <div class="field">
+          <label>Grasping Power</label>
+          <div class="diff-group" id="graspingPowerGroup" data-value="2">
+            <button class="diff-btn" type="button" data-grasp="1" onclick="setGraspingPower(1)">Slow</button>
+            <button class="diff-btn active-medium" type="button" data-grasp="2" onclick="setGraspingPower(2)">Average</button>
+            <button class="diff-btn" type="button" data-grasp="3" onclick="setGraspingPower(3)">Fast</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Subjects</div>
+      <div class="subject-cards" id="subjectCards"></div>
+      <button class="btn-secondary" type="button" style="width:100%;margin-top:.75rem" onclick="addSubject()">Add Subject</button>
+    </div>
+
+    <div>
+      <div class="section-title">input.txt Preview</div>
+      <div class="input-preview">
+        <div class="preview-header">
+          <span class="stat-label">input.txt</span>
+          <button class="btn-secondary" type="button" onclick="copyInput()">Copy</button>
+        </div>
+        <pre id="inputPreview">-</pre>
+      </div>
+    </div>
+
+    <button class="btn-primary" type="button" onclick="generateSchedule()">Generate Schedule</button>
+  </section>
+
+  <section class="panel-right">
+    <div id="schedulePanel">
+      <div class="empty-state">
+        <div class="empty-icon">No plan yet</div>
+        <p>Fill in your subjects and click <strong>Generate Schedule</strong> to see your study plan here.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="panel-chat">
+    <div class="chat-header">
+      <div>
+        <div class="section-title">StudyBot</div>
+        <div class="chat-subtitle">Ask about your plan, tasks, or study strategy.</div>
+      </div>
+      <span class="chat-status">Ready</span>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-bubble bubble-bot">
+        Hi! I can answer questions about your schedule or give you study tips.
+        Generate a schedule first, then ask me anything.
+      </div>
+    </div>
+    <div class="chat-input-row">
+      <input
+        type="text"
+        id="chatInput"
+        placeholder="Ask about your schedule..."
+        style="flex:1"
+        onkeydown="if(event.key==='Enter') sendChat()"
+      />
+      <button
+        class="btn-primary"
+        style="width:auto; padding:8px 14px"
+        onclick="sendChat()"
+      >Send</button>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast">Copied</div>
+
+<script>
+let subjects = [];
+let backendSchedule = null;
+let backendScheduleRaw = '';
+let currentDay = 1;
+let progressCompleted = {};
+let progressRatings = {};
+let chatHistory = [];
+const API_BASE = window.location.protocol === 'file:'
+  ? 'http://127.0.0.1:8080'
+  : window.location.origin;
+
+function uid() {
+  return Math.random().toString(36).slice(2, 8);
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const message = input.value.trim();
+  if (!message) return;
+  input.value = '';
+
+  appendBubble('user', message);
+  appendBubble('thinking', 'Thinking...');
+
+  try {
+    const response = await fetch(`${API_BASE}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message,
+        schedule: window._lastSchedule || null,
+        chatHistory
+      })
+    });
+    const data = await response.json();
+    removeThinking();
+    if (!response.ok) throw new Error(data.error || 'Failed');
+    const reply = data.reply || data.error || 'No response.';
+    await appendBotBubbleTyping(reply);
+    chatHistory.push({ role: 'user',      content: message });
+    chatHistory.push({ role: 'assistant', content: reply });
+
+    if (data.planChanged) {
+      if (data.inputText) applyInputTxt(data.inputText);
+      if (data.newSchedule) {
+        const normalized = normalizeBackendSchedule(data.newSchedule);
+        backendSchedule = normalized.schedule;
+        backendScheduleRaw = JSON.stringify(data.newSchedule, null, 2);
+        renderSchedule(normalized.schedule, normalized.totalDays);
+        showToast('Study plan updated by StudyBot ✓');
+      } else if (data.inputText) {
+        showToast('Plan data updated — click Generate Schedule to refresh the timetable.');
+      }
+    }
+  } catch (err) {
+    removeThinking();
+    const detail = err && err.message ? err.message : '';
+    const hint = detail && detail !== 'Failed'
+      ? detail
+      : 'Make sure the server is running.';
+    appendBubble('bot', `Could not reach StudyBot. ${hint}`);
+  }
+}
+
+function renderMarkdown(text) {
+  const escaped = escHtml(String(text));
+  const paragraphs = escaped
+    .split(/\n{2,}/)
+    .map(block => block
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer noopener">$1</a>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/^-\s+(.+)$/gm, '<div class="md-list-item">• $1</div>')
+      .replace(/\n/g, '<br>')
+    );
+  return paragraphs.map(p => `<p>${p}</p>`).join('');
+}
+
+function appendBubble(type, text) {
+  const box = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  if (type === 'user')     div.className = 'chat-bubble bubble-user';
+  if (type === 'bot')      div.className = 'chat-bubble bubble-bot';
+  if (type === 'thinking') div.className = 'chat-thinking';
+  if (type === 'thinking') div.id = 'thinkingBubble';
+  if (type === 'bot') {
+    div.innerHTML = renderMarkdown(text);
+  } else {
+    div.textContent = text;
+  }
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+async function appendBotBubbleTyping(text) {
+  const box = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-bubble bubble-bot typing';
+  box.appendChild(div);
+
+  let output = '';
+  const chars = String(text);
+  const delay = 18;
+
+  for (let i = 0; i < chars.length; i++) {
+    output += chars[i];
+    div.textContent = output;
+    box.scrollTop = box.scrollHeight;
+    await new Promise(resolve => setTimeout(resolve, delay));
+  }
+
+  div.classList.remove('typing');
+  div.innerHTML = renderMarkdown(output);
+  box.scrollTop = box.scrollHeight;
+}
+
+function removeThinking() {
+  const el = document.getElementById('thinkingBubble');
+  if (el) el.remove();
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function addSubject(name = '', topics = [''], difficulty = 2, examDay = 7, confidence = 2, proficiency = 2) {
+  subjects.push({ id: uid(), name, topics: [...topics], difficulty, examDay, confidence, proficiency });
+  renderSubjects();
+  updatePreview();
+}
+
+function setConfidence(id, val) {
+  const subject = subjects.find(item => item.id === id);
+  if (!subject) return;
+  subject.confidence = val;
+  renderSubjects();
+  updatePreview();
+}
+
+function setProficiency(id, val) {
+  const subject = subjects.find(item => item.id === id);
+  if (!subject) return;
+  subject.proficiency = val;
+  renderSubjects();
+  updatePreview();
+}
+
+function setProfileGroupActive(groupId, attr, value) {
+  const group = document.getElementById(groupId);
+  if (!group) return;
+  group.dataset.value = String(value);
+  group.querySelectorAll('.diff-btn').forEach(button => {
+    const raw = parseInt(button.getAttribute(attr), 10);
+    button.classList.remove('active-easy', 'active-medium', 'active-hard');
+    if (raw !== value) return;
+    if (value === 1) button.classList.add('active-easy');
+    else if (value === 2) button.classList.add('active-medium');
+    else button.classList.add('active-hard');
+  });
+}
+
+function setStudyStyle(val) {
+  setProfileGroupActive('studyStyleGroup', 'data-style', val);
+  updatePreview();
+}
+
+function setPeakHours(val) {
+  const group = document.getElementById('peakHoursGroup');
+  if (!group) return;
+  group.dataset.value = String(val);
+  group.querySelectorAll('.diff-btn').forEach(button => {
+    const peak = parseInt(button.getAttribute('data-peak'), 10);
+    button.classList.remove('active-easy', 'active-medium', 'active-hard');
+    button.classList.toggle('active-easy', peak === 1 && val === 1);
+    button.classList.toggle('active-medium', peak === 2 && val === 2);
+  });
+  updatePreview();
+}
+
+function setGraspingPower(val) {
+  setProfileGroupActive('graspingPowerGroup', 'data-grasp', val);
+  updatePreview();
+}
+
+function getProfileValue(groupId, fallback) {
+  const group = document.getElementById(groupId);
+  return parseInt(group?.dataset?.value, 10) || fallback;
+}
+
+function getLearningProfileLabel() {
+  const styleLabels = ['', 'Cramming', 'Balanced', 'Gradual'];
+  const graspLabels = ['', 'Slow', 'Average', 'Fast'];
+  const style = getProfileValue('studyStyleGroup', 2);
+  const grasp = getProfileValue('graspingPowerGroup', 2);
+  const focus = parseInt(document.getElementById('focusLimit')?.value, 10) || 2;
+  return `${styleLabels[style] || 'Balanced'} · ${graspLabels[grasp] || 'Average'} · Focus:${focus}`;
+}
+
+function removeSubject(id) {
+  subjects = subjects.filter(subject => subject.id !== id);
+  renderSubjects();
+  updatePreview();
+}
+
+function setDifficulty(id, val) {
+  const subject = subjects.find(item => item.id === id);
+  if (!subject) return;
+  subject.difficulty = val;
+  renderSubjects();
+  updatePreview();
+}
+
+function addTopic(id) {
+  const subject = subjects.find(item => item.id === id);
+  if (!subject || subject.topics.length >= 50) return;
+  subject.topics.push('');
+  renderSubjects();
+  updatePreview();
+}
+
+function removeTopic(id, index) {
+  const subject = subjects.find(item => item.id === id);
+  if (!subject || subject.topics.length <= 1) return;
+  subject.topics.splice(index, 1);
+  renderSubjects();
+  updatePreview();
+}
+
+function onSubjectChange(id, field, value) {
+  const subject = subjects.find(item => item.id === id);
+  if (!subject) return;
+  subject[field] = field === 'examDay' ? parseInt(value, 10) || 1 : value;
+  updatePreview();
+}
+
+function onTopicChange(id, index, value) {
+  const subject = subjects.find(item => item.id === id);
+  if (!subject) return;
+  subject.topics[index] = value;
+  updatePreview();
+}
+
+function renderSubjects() {
+  const container = document.getElementById('subjectCards');
+  container.innerHTML = subjects.map((subject, index) => `
+    <div class="subject-card">
+      <div class="subject-card-header">
+        <span class="subject-number">Subject ${index + 1}</span>
+        <button class="remove-btn" type="button" onclick="removeSubject('${subject.id}')" aria-label="Remove subject">x</button>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Name</label>
+          <input type="text" value="${escHtml(subject.name)}" placeholder="e.g. Maths"
+            oninput="onSubjectChange('${subject.id}', 'name', this.value)" />
+        </div>
+        <div class="field">
+          <label>Exam Day</label>
+          <input type="number" value="${subject.examDay}" min="1"
+            oninput="onSubjectChange('${subject.id}', 'examDay', this.value)" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Difficulty</label>
+        <div class="diff-group">
+          <button class="diff-btn ${subject.difficulty === 1 ? 'active-easy' : ''}" type="button" onclick="setDifficulty('${subject.id}', 1)">Easy</button>
+          <button class="diff-btn ${subject.difficulty === 2 ? 'active-medium' : ''}" type="button" onclick="setDifficulty('${subject.id}', 2)">Medium</button>
+          <button class="diff-btn ${subject.difficulty === 3 ? 'active-hard' : ''}" type="button" onclick="setDifficulty('${subject.id}', 3)">Hard</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Retention</label>
+        <div class="diff-group" data-confidence="${subject.confidence || 2}">
+          <button class="diff-btn ${(subject.confidence || 2) === 1 ? 'active-easy' : ''}" type="button" onclick="setConfidence('${subject.id}', 1)">Low</button>
+          <button class="diff-btn ${(subject.confidence || 2) === 2 ? 'active-medium' : ''}" type="button" onclick="setConfidence('${subject.id}', 2)">Medium</button>
+          <button class="diff-btn ${(subject.confidence || 2) === 3 ? 'active-hard' : ''}" type="button" onclick="setConfidence('${subject.id}', 3)">High</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Proficiency</label>
+        <div class="diff-group" data-proficiency="${subject.proficiency || 2}">
+          <button class="diff-btn ${(subject.proficiency || 2) === 1 ? 'active-easy' : ''}" type="button" onclick="setProficiency('${subject.id}', 1)">Weak</button>
+          <button class="diff-btn ${(subject.proficiency || 2) === 2 ? 'active-medium' : ''}" type="button" onclick="setProficiency('${subject.id}', 2)">Average</button>
+          <button class="diff-btn ${(subject.proficiency || 2) === 3 ? 'active-hard' : ''}" type="button" onclick="setProficiency('${subject.id}', 3)">Strong</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Topics</label>
+        <div class="topics-list">
+          ${subject.topics.map((topic, topicIndex) => `
+            <div class="topic-row">
+              <input type="text" value="${escHtml(topic)}" placeholder="Topic name (no spaces)"
+                oninput="onTopicChange('${subject.id}', ${topicIndex}, this.value)" />
+              <button class="remove-topic" type="button" onclick="removeTopic('${subject.id}', ${topicIndex})">-</button>
+            </div>
+          `).join('')}
+          <button class="add-topic-btn" type="button" onclick="addTopic('${subject.id}')">Add topic</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function getMissedDays(totalDays) {
+  return new Set(
+    document.getElementById('missedDays').value
+      .split(',')
+      .map(day => parseInt(day.trim(), 10))
+      .filter(day => day >= 1 && day <= totalDays)
+  );
+}
+
+function buildInputTxt() {
+  const totalDays = parseInt(document.getElementById('totalDays').value, 10) || 10;
+  const sessionsPerDay = parseInt(document.getElementById('sessionsPerDay').value, 10) || 1;
+  const missedDaysText = Array.from(getMissedDays(totalDays)).join(',');
+  const validSubjects = subjects.filter(subject => {
+    const hasName = subject.name.trim().length > 0;
+    const hasTopics = subject.topics.some(topic => topic.trim().length > 0);
+    return hasName && hasTopics;
+  });
+
+  const studyStyle = getProfileValue('studyStyleGroup', 2);
+  const peakHours = getProfileValue('peakHoursGroup', 1);
+  const focusLimit = parseInt(document.getElementById('focusLimit').value, 10) || 2;
+  const graspingPower = getProfileValue('graspingPowerGroup', 2);
+
+  const lines = [`${validSubjects.length} ${totalDays}`];
+  validSubjects.forEach(subject => {
+    const name = subject.name.trim().replace(/\s+/g, '_');
+    const topics = subject.topics.map(topic => topic.trim().replace(/\s+/g, '_')).filter(Boolean);
+    const confidence = subject.confidence || 2;
+    const proficiency = subject.proficiency || 2;
+    lines.push(`${name} ${topics.length} ${subject.difficulty} ${subject.examDay} ${confidence} ${proficiency}`);
+    topics.forEach(topic => lines.push(topic));
+  });
+  lines.push(`${sessionsPerDay}`);
+  lines.push(`${studyStyle} ${peakHours} ${focusLimit} ${graspingPower}`);
+  lines.push(missedDaysText || '0');
+  return lines.join('\n');
+}
+
+function isPreferencesLine(parts) {
+  if (parts.length < 3) return false;
+  const style = parseInt(parts[0], 10);
+  const peak = parseInt(parts[1], 10);
+  const focus = parseInt(parts[2], 10);
+  return style >= 1 && style <= 3 && peak >= 1 && peak <= 2 && focus >= 1 && focus <= 5;
+}
+
+function updatePreview() {
+  document.getElementById('inputPreview').textContent = buildInputTxt() || '-';
+}
+
+function applyInputTxt(text) {
+  const lines = String(text).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (!lines.length) return;
+
+  const header = lines[0].split(/\s+/);
+  const subjectCount = parseInt(header[0], 10);
+  const totalDays = parseInt(header[1], 10);
+  if (!Number.isNaN(totalDays)) {
+    document.getElementById('totalDays').value = totalDays;
+  }
+
+  subjects = [];
+  let index = 1;
+  for (let i = 0; i < subjectCount && index < lines.length; i++) {
+    const parts = lines[index++].split(/\s+/);
+    if (parts.length < 4) break;
+    const name = parts[0].replace(/_/g, ' ');
+    const topicCount = parseInt(parts[1], 10);
+    const difficulty = parseInt(parts[2], 10);
+    const examDay = parseInt(parts[3], 10);
+    const confidence = parts.length >= 5 ? parseInt(parts[4], 10) : 2;
+    const proficiency = parts.length >= 6 ? parseInt(parts[5], 10) : 2;
+    const topics = [];
+    for (let t = 0; t < topicCount && index < lines.length; t++) {
+      topics.push(lines[index++].replace(/_/g, ' '));
+    }
+    subjects.push({
+      id: uid(),
+      name,
+      topics,
+      difficulty,
+      examDay,
+      confidence: confidence >= 1 && confidence <= 3 ? confidence : 2,
+      proficiency: proficiency >= 1 && proficiency <= 3 ? proficiency : 2
+    });
+  }
+
+  if (index < lines.length) {
+    const sessions = parseInt(lines[index++], 10);
+    if (!Number.isNaN(sessions)) {
+      document.getElementById('sessionsPerDay').value = sessions;
+    }
+  }
+  if (index < lines.length) {
+    const prefParts = lines[index].split(/\s+/);
+    if (isPreferencesLine(prefParts)) {
+      const studyStyle = parseInt(prefParts[0], 10);
+      const peakHours = parseInt(prefParts[1], 10);
+      const focusLimit = parseInt(prefParts[2], 10);
+      const graspingPower = prefParts.length >= 4 ? parseInt(prefParts[3], 10) : 2;
+      setStudyStyle(studyStyle);
+      setPeakHours(peakHours);
+      document.getElementById('focusLimit').value = focusLimit;
+      setGraspingPower(graspingPower >= 1 && graspingPower <= 3 ? graspingPower : 2);
+      index++;
+    }
+  }
+  if (index < lines.length) {
+    const missed = lines[index];
+    document.getElementById('missedDays').value = missed === '0' ? '' : missed;
+  }
+
+  renderSubjects();
+  updatePreview();
+}
+
+async function generateSchedule() {
+  const inputText = buildInputTxt();
+  const validSubjects = subjects.filter(subject => subject.name.trim() && subject.topics.some(topic => topic.trim()));
+  const generateButton = document.querySelector('.btn-primary');
+  const originalText = generateButton.textContent;
+
+  if (!validSubjects.length) {
+    alert('Add at least one subject with topics first.');
+    return;
+  }
+
+  generateButton.disabled = true;
+  generateButton.textContent = 'Generating...';
+
+  try {
+    const response = await fetch(`${API_BASE}/api/schedule`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inputText })
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || 'Backend failed to generate the schedule.');
+
+    backendSchedule = payload.schedule;
+    backendScheduleRaw = payload.raw || JSON.stringify(payload.schedule, null, 2);
+    currentDay = 1;
+    progressCompleted = {};
+    progressRatings = {};
+    chatHistory = [];
+
+    const normalized = normalizeBackendSchedule(backendSchedule);
+    renderSchedule(normalized.schedule, normalized.totalDays);
+    showToast('Schedule generated by C backend.');
+  } catch (err) {
+    alert('Could not reach the C backend. Start it with .\\build.ps1, then open http://localhost:8080/.\n\n' + err.message);
+  } finally {
+    generateButton.disabled = false;
+    generateButton.textContent = originalText;
+  }
+}
+
+function taskFromBackendText(text) {
+  const raw = String(text);
+  const lower = raw.toLowerCase();
+  if (lower.includes('missed')) return { type: 'missed', text: raw };
+  if (lower === 'break') return { type: 'break', text: raw };
+  if (lower === 'completed') return { type: 'completed', text: raw };
+  if (lower.startsWith('revise:')) return { type: 'revise', text: raw };
+  if (lower.startsWith('study:')) return { type: 'study', text: raw };
+  return { type: 'study', text: raw };
+}
+
+function normalizeBackendSchedule(schedule) {
+  const dayEntries = Object.entries(schedule || {}).sort((a, b) => {
+    const dayA = parseInt(a[0].replace(/\D/g, ''), 10) || 0;
+    const dayB = parseInt(b[0].replace(/\D/g, ''), 10) || 0;
+    return dayA - dayB;
+  });
+  const normalized = {};
+  dayEntries.forEach(([dayKey, tasks]) => {
+    normalized[dayKey] = Array.isArray(tasks) ? tasks.map(taskFromBackendText) : [];
+  });
+  return {
+    schedule: normalized,
+    totalDays: dayEntries.length || parseInt(document.getElementById('totalDays').value, 10) || 10
+  };
+}
+
+function renderSchedule(schedule, totalDays) {
+  const panel = document.getElementById('schedulePanel');
+  let studyCount = 0;
+  let reviseCount = 0;
+  let restDays = 0;
+  let missedCount = 0;
+  let busiestDay = 'None';
+  let busiestCount = 0;
+
+  Object.entries(schedule).forEach(([dayKey, tasks], index) => {
+    const usefulTasks = tasks.filter(task => task.type !== 'break' && task.type !== 'completed');
+    if (usefulTasks.length === 0) restDays++;
+    if (usefulTasks.length > busiestCount) {
+      busiestCount = usefulTasks.length;
+      busiestDay = `Day ${index + 1}`;
+    }
+    tasks.forEach(task => {
+      if (task.type === 'study') studyCount++;
+      if (task.type === 'revise') reviseCount++;
+      if (task.type === 'missed') missedCount++;
+    });
+  });
+
+  panel.innerHTML = `
+    <div class="output-header">
+      <span class="output-title">Your Study Plan</span>
+      <div class="output-actions">
+        <button class="btn-secondary" type="button" onclick="copyJson()">Copy Schedule</button>
+        <button class="btn-secondary" type="button" onclick="downloadJson()">Download</button>
+      </div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-value">${totalDays}</div><div class="stat-label">Days Planned</div></div>
+      <div class="stat-card"><div class="stat-value">${studyCount}</div><div class="stat-label">Study Sessions</div></div>
+      <div class="stat-card"><div class="stat-value">${reviseCount}</div><div class="stat-label">Revision Slots</div></div>
+      <div class="stat-card"><div class="stat-value">${restDays}</div><div class="stat-label">Rest Days</div></div>
+      <div class="stat-card"><div class="stat-value">${missedCount}</div><div class="stat-label">Missed Days</div></div>
+      <div class="stat-card"><div class="stat-value">${busiestDay}</div><div class="stat-label">Busiest Day</div></div>
+      <div class="stat-card"><div class="stat-value" style="font-size:.95rem">${escHtml(getLearningProfileLabel())}</div><div class="stat-label">Learning Profile</div></div>
+    </div>
+    <div class="schedule-grid" id="scheduleGrid"></div>
+    <div id="progressPanel"></div>
+  `;
+
+  const grid = document.getElementById('scheduleGrid');
+  Object.entries(schedule).forEach(([dayKey, tasks], index) => {
+    const card = document.createElement('div');
+    const nonBreak = tasks.filter(task => task.type !== 'break');
+    card.className = 'day-card';
+    card.innerHTML = `
+      <div class="day-label">Day ${index + 1}</div>
+      <div class="task-list">
+        ${nonBreak.length === 0 ? '<span class="empty-day">rest day / all done</span>' : nonBreak.map(task => `
+          <div class="task-item task-${task.type}">
+            <div class="task-dot"></div>
+            <span>${escHtml(task.text)}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  window._lastSchedule = schedule;
+  window._lastTotalDays = totalDays;
+  renderProgressSection(schedule, totalDays);
+}
+
+function parseStudyTask(text) {
+  const match = String(text).match(/^Study:\s*(.*?)\s*-\s*(.*?)\s*$/);
+  if (!match) return null;
+  return { subject: match[1], topic: match[2] };
+}
+
+function taskKey(subject, topic) {
+  return `${subject}|||${topic}`;
+}
+
+function renderProgressSection(schedule, totalDays) {
+  const panel = document.getElementById('progressPanel');
+  const dayTasks = schedule[`day${currentDay}`] || [];
+  const studyTasks = dayTasks
+    .filter(task => task.type === 'study')
+    .map(task => ({ ...task, parsed: parseStudyTask(task.text) }))
+    .filter(task => task.parsed);
+
+  panel.innerHTML = `
+    <div class="progress-card">
+      <div class="progress-header">
+        <div>
+          <div class="section-title" style="margin-bottom:3px">Mark Today's Progress</div>
+          <div class="stat-label">Today is Day ${Math.min(currentDay, totalDays || currentDay)}</div>
+        </div>
+      </div>
+      <div class="progress-list">
+        ${studyTasks.length === 0 ? '<div class="empty-day">No study tasks to mark for today.</div>' : studyTasks.map((task, index) => {
+          const id = `progress-${currentDay}-${index}`;
+          const key = taskKey(task.parsed.subject, task.parsed.topic);
+          return `
+            <div class="progress-item">
+              <label class="progress-check">
+                <input type="checkbox" id="${id}" data-subject="${escHtml(task.parsed.subject)}" data-topic="${escHtml(task.parsed.topic)}"
+                  onchange="toggleConfidence('${id}')" />
+                <span>${escHtml(task.parsed.topic)} <span class="stat-label">(${escHtml(task.parsed.subject)})</span></span>
+              </label>
+              <div class="confidence" id="${id}-confidence" data-rating="2">
+                <div class="diff-group">
+                  <button class="diff-btn" type="button" onclick="setProgressRating('${id}', 1)">1 - Shaky</button>
+                  <button class="diff-btn active-rating" type="button" onclick="setProgressRating('${id}', 2)">2 - Okay</button>
+                  <button class="diff-btn" type="button" onclick="setProgressRating('${id}', 3)">3 - Solid</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <button class="btn-primary" type="button" ${studyTasks.length === 0 || currentDay > totalDays ? 'disabled' : ''} onclick="submitProgress()">Submit Progress & Replan</button>
+    </div>
+  `;
+}
+
+function toggleConfidence(id) {
+  const checkbox = document.getElementById(id);
+  const confidence = document.getElementById(`${id}-confidence`);
+  confidence.classList.toggle('visible', checkbox.checked);
+}
+
+function setProgressRating(id, rating) {
+  const confidence = document.getElementById(`${id}-confidence`);
+  confidence.dataset.rating = String(rating);
+  confidence.querySelectorAll('.diff-btn').forEach((button, index) => {
+    button.classList.toggle('active-rating', index + 1 === rating);
+  });
+}
+
+async function submitProgress() {
+  const submittedDay = currentDay;
+  const completed = { ...progressCompleted };
+  const ratings = JSON.parse(JSON.stringify(progressRatings));
+
+  document.querySelectorAll('#progressPanel input[type="checkbox"]:checked').forEach(checkbox => {
+    const subject = checkbox.dataset.subject;
+    const topic = checkbox.dataset.topic;
+    const confidence = document.getElementById(`${checkbox.id}-confidence`);
+    const rating = parseInt(confidence.dataset.rating, 10) || 2;
+
+    completed[subject] = completed[subject] || [];
+    if (!completed[subject].includes(topic)) completed[subject].push(topic);
+
+    ratings[subject] = ratings[subject] || {};
+    ratings[subject][topic] = rating;
+  });
+
+  try {
+    const response = await fetch(`${API_BASE}/api/replan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentDay: submittedDay, completed, ratings })
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || 'Backend failed to replan.');
+
+    progressCompleted = completed;
+    progressRatings = ratings;
+    backendSchedule = payload.schedule;
+    backendScheduleRaw = payload.raw || JSON.stringify(payload.schedule, null, 2);
+
+    const normalized = normalizeBackendSchedule(backendSchedule);
+    currentDay = submittedDay + 1;
+    renderSchedule(normalized.schedule, normalized.totalDays);
+    showToast(`Plan updated from Day ${submittedDay + 1} onwards`);
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+function copyJson() {
+  if (!window._lastSchedule) return;
+  const text = backendScheduleRaw || JSON.stringify(backendSchedule || window._lastSchedule, null, 2);
+  navigator.clipboard.writeText(text).then(() => showToast('JSON copied.'));
+}
+
+function downloadJson() {
+  if (!window._lastSchedule) return;
+  const text = backendScheduleRaw || JSON.stringify(backendSchedule || window._lastSchedule, null, 2);
+  const blob = new Blob([text], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'output.json';
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function copyInput() {
+  navigator.clipboard.writeText(buildInputTxt()).then(() => showToast('input.txt copied.'));
+}
+
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+document.getElementById('totalDays').addEventListener('input', updatePreview);
+document.getElementById('sessionsPerDay').addEventListener('input', updatePreview);
+document.getElementById('missedDays').addEventListener('input', updatePreview);
+document.getElementById('focusLimit').addEventListener('input', updatePreview);
+
+addSubject('Maths', ['Calculus', 'Algebra', 'Trigonometry'], 2, 7, 1, 3);
+addSubject('Physics', ['Kinematics', 'Thermodynamics'], 3, 10, 3, 1);
+</script>
+</body>
+</html>

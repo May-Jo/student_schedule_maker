@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Study Planner - Stopwatch</title>
+<link rel="stylesheet" href="css/shared.css" />
+<style>
+  main {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 24px 18px 40px;
+  }
+
+  .stack {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    padding: 16px;
+  }
+
+  .card p {
+    margin-bottom: 12px;
+    color: var(--muted);
+    font-size: .9rem;
+    line-height: 1.45;
+  }
+
+  .stopwatch-time {
+    margin: 14px 0;
+    color: var(--accent);
+    font-size: 2.4rem;
+    font-weight: 800;
+    text-align: center;
+  }
+
+  .stopwatch-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .stopwatch-buttons button {
+    border: none;
+    border-radius: 4px;
+    color: #ffffff;
+    cursor: pointer;
+    padding: 10px;
+  }
+
+  .sw-start { background: var(--accent); }
+  .sw-pause { background: #777777; }
+  .sw-reset { background: var(--danger); }
+  .sw-finish { background: var(--success); }
+
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .history-item {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: #f9f9f9;
+    padding: 10px;
+  }
+
+  .history-item input {
+    margin-bottom: 6px;
+  }
+
+  .history-meta,
+  .empty-day {
+    color: var(--muted);
+    font-size: .85rem;
+    line-height: 1.5;
+  }
+
+  .empty-day {
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-mark">SP</div>
+  <h1>Study<span>Planner</span></h1>
+  <nav>
+    <a class="nav-link" href="index.html">Planner</a>
+    <a class="nav-link active" href="stopwatch.html">Stopwatch</a>
+    <a class="nav-link" href="heatmap.html">Heatmap</a>
+  </nav>
+</header>
+
+<main>
+  <div class="stack">
+    <section class="card">
+      <div class="section-title">Launch C Stopwatch</div>
+      <p>Opens the terminal-based C stopwatch (stopwatch.exe) in a new console window.</p>
+      <button class="btn-primary" type="button" onclick="launchStopwatch()">Open C Stopwatch</button>
+    </section>
+
+    <section class="card">
+      <div class="section-title">In-Browser Stopwatch</div>
+      <div class="field">
+        <label for="sessionName">Session name</label>
+        <input type="text" id="sessionName" value="Study Session" />
+      </div>
+      <div class="stopwatch-time" id="stopwatchDisplay">00:00:00</div>
+      <div class="stopwatch-buttons">
+        <button class="sw-start" type="button" onclick="startStopwatch()">Start</button>
+        <button class="sw-pause" type="button" onclick="pauseStopwatch()">Pause</button>
+        <button class="sw-reset" type="button" onclick="resetStopwatch()">Reset</button>
+        <button class="sw-finish" type="button" onclick="finishStopwatch()">Finish & Save</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">Session History</div>
+      <div class="history-list" id="sessionHistory"></div>
+    </section>
+  </div>
+</main>
+
+<div class="toast" id="toast">Ready</div>
+
+<script>
+let stopwatchSeconds = 0;
+let stopwatchTimer = null;
+let sessionStartTime = null;
+let sessionHistory = [];
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+async function launchStopwatch() {
+  try {
+    const response = await fetch('/api/stopwatch/launch', { method: 'POST' });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || 'Could not launch stopwatch.exe.');
+    showToast('C stopwatch opened.');
+  } catch (err) {
+    alert('Could not reach the C backend. Start it with .\\build.ps1, then open http://localhost:8080/.\n\n' + err.message);
+  }
+}
+
+function updateStopwatchDisplay() {
+  const hrs = String(Math.floor(stopwatchSeconds / 3600)).padStart(2, '0');
+  const mins = String(Math.floor((stopwatchSeconds % 3600) / 60)).padStart(2, '0');
+  const secs = String(stopwatchSeconds % 60).padStart(2, '0');
+  document.getElementById('stopwatchDisplay').textContent = `${hrs}:${mins}:${secs}`;
+}
+
+function formatDuration(totalSeconds) {
+  const hrs = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+  const mins = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+  const secs = String(totalSeconds % 60).padStart(2, '0');
+  return `${hrs}:${mins}:${secs}`;
+}
+
+function formatDate(date) {
+  return date.toLocaleDateString();
+}
+
+function formatTime(date) {
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function startStopwatch() {
+  if (stopwatchTimer !== null) return;
+  if (sessionStartTime === null) sessionStartTime = new Date();
+  stopwatchTimer = setInterval(() => {
+    stopwatchSeconds++;
+    updateStopwatchDisplay();
+  }, 1000);
+}
+
+function pauseStopwatch() {
+  clearInterval(stopwatchTimer);
+  stopwatchTimer = null;
+}
+
+function resetStopwatch() {
+  clearInterval(stopwatchTimer);
+  stopwatchTimer = null;
+  stopwatchSeconds = 0;
+  sessionStartTime = null;
+  updateStopwatchDisplay();
+}
+
+function finishStopwatch() {
+  if (stopwatchSeconds === 0 || sessionStartTime === null) {
+    alert('Start the stopwatch before finishing a session.');
+    return;
+  }
+
+  const endTime = new Date();
+  const name = document.getElementById('sessionName').value.trim() || 'Study Session';
+
+  sessionHistory.unshift({
+    name,
+    date: formatDate(sessionStartTime),
+    start: formatTime(sessionStartTime),
+    end: formatTime(endTime),
+    duration: formatDuration(stopwatchSeconds)
+  });
+
+  saveSessionHistory();
+  renderSessionHistory();
+  resetStopwatch();
+  document.getElementById('sessionName').value = 'Study Session';
+  showToast('Session saved.');
+}
+
+function renameSession(index, value) {
+  sessionHistory[index].name = value.trim() || 'Study Session';
+  saveSessionHistory();
+  renderSessionHistory();
+}
+
+function saveSessionHistory() {
+  localStorage.setItem('studySessionHistory', JSON.stringify(sessionHistory));
+}
+
+function loadSessionHistory() {
+  const savedHistory = localStorage.getItem('studySessionHistory');
+  if (savedHistory) sessionHistory = JSON.parse(savedHistory);
+  renderSessionHistory();
+}
+
+function renderSessionHistory() {
+  const history = document.getElementById('sessionHistory');
+  if (sessionHistory.length === 0) {
+    history.innerHTML = '<div class="empty-day">No sessions recorded yet.</div>';
+    return;
+  }
+
+  history.innerHTML = sessionHistory.map((session, index) => `
+    <div class="history-item">
+      <input type="text" value="${escHtml(session.name)}" onchange="renameSession(${index}, this.value)" />
+      <div class="history-meta">
+        Date: ${escHtml(session.date)}<br />
+        Start: ${escHtml(session.start)} | End: ${escHtml(session.end)}<br />
+        Duration: ${escHtml(session.duration)}
+      </div>
+    </div>
+  `).join('');
+}
+
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+loadSessionHistory();
+</script>
+</body>
+</html>
