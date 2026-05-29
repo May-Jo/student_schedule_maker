@@ -1,0 +1,12 @@
+3 10
+Maths 3 2 7
+Calculus
+Algebra
+Trigonometry
+Physics 2 3 10
+Kinematics
+Thermodynamics
+English 1 3 7
+nouns
+2
+2 1 2 2

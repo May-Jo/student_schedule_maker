@@ -3,6 +3,7 @@ import json
 import re
 from groq import Groq
 from input_manager import InputManager
+from paths import INPUT_FILE
 
 
 def build_user_prompt(message, schedule, input_data=None):
@@ -92,8 +93,7 @@ def _apply_actions(manager, data, actions):
 
 def chat(message, schedule, chat_history, input_path=None):
     api_key = os.environ.get("GROQ_API_KEY", "").strip()
-    project_root = os.path.dirname(os.path.abspath(__file__))
-    input_path = input_path or os.path.join(project_root, "input.txt")
+    input_path = input_path or INPUT_FILE
 
     if not api_key or api_key == "your_api_key_here":
         return (

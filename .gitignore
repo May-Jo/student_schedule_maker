@@ -10,11 +10,18 @@ venv/
 # Build output
 bin/*.exe
 
-# Runtime / generated
-output.json
-state.json
-chat_input.json
-chat_output.json
+# Runtime data (keep examples)
+data/output.json
+data/state.json
+data/chat/*
+!data/chat/.gitkeep
+
+# Legacy root artifacts (if recreated)
+/output.json
+/state.json
+/chat_input.json
+/chat_output.json
+/input.txt
 
 # Local test copies
 input_old.txt

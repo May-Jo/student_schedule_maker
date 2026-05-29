@@ -19,20 +19,48 @@
 
 | Module | Role |
 |--------|------|
-| **Planner** | Build subjects, set retention & proficiency, generate `output.json` |
-| **StudyBot** | Groq-powered chat; can update `input.txt` and refresh the schedule |
+| **Planner** | Build subjects, set retention & proficiency, generate schedule |
+| **StudyBot** | Groq-powered chat; can update the plan and refresh the timetable |
 | **Stopwatch** | Focus sessions with local history |
 | **Heatmap** | Visual overview of study vs revision load |
 
 ---
 
-## Highlights
+## Project structure
 
-- **Confidence-based revision** — Low / Medium / High retention per subject (1, 3, or 5 day gaps)
-- **Proficiency-aware scheduling** — Weak subjects get more daily slots; strong subjects are deprioritised
-- **Learning profile** — Cramming, Balanced, or Gradual pacing; focus limit before breaks; grasping power
-- **Progress & replan** — Check off today’s topics; C engine regenerates remaining days
-- **Backward-compatible `input.txt`** — Older 4-field subject lines still work with sensible defaults
+```
+student_schedule_maker/
+├── backend/
+│   ├── c/                    # Scheduling engine & HTTP server (C)
+│   │   ├── study.c
+│   │   ├── server.c
+│   │   └── stopwatch.c
+│   └── python/               # StudyBot & input.txt helpers
+│       ├── assistant_api.py
+│       ├── assistant_model.py
+│       ├── input_manager.py
+│       └── paths.py
+├── frontend/                 # Static web UI
+│   ├── index.html
+│   ├── stopwatch.html
+│   ├── heatmap.html
+│   └── css/shared.css
+├── data/
+│   ├── input.txt             # Active planner input (runtime)
+│   ├── examples/
+│   │   └── input.sample.txt  # Sample you can copy
+│   ├── output.json           # Generated schedule (gitignored)
+│   ├── state.json            # Progress for replan (gitignored)
+│   └── chat/                 # StudyBot temp files (gitignored)
+├── scripts/
+│   ├── build.ps1             # Compile + start server
+│   └── server.ps1            # PowerShell HTTP server (alternative)
+├── bin/                      # Compiled .exe files (after build)
+├── build.ps1                 # Wrapper → scripts/build.ps1
+├── server.ps1                # Wrapper → scripts/server.ps1
+├── requirements.txt
+└── .env.example
+```
 
 ---
 
@@ -44,91 +72,44 @@
 - Python 3.10+  
 - PowerShell (Windows)
 
-### 1. Clone & install Python deps
+### 1. Clone & install
 
 ```powershell
 git clone https://github.com/May-Jo/student_schedule_maker.git
 cd student_schedule_maker
 pip install -r requirements.txt
-```
-
-### 2. Configure StudyBot (optional)
-
-```powershell
 copy .env.example .env
-# Edit .env and set GROQ_API_KEY from https://console.groq.com/
+# Optional: set GROQ_API_KEY in .env for StudyBot
 ```
 
-### 3. Build & run
+### 2. Build & run
 
 ```powershell
 .\build.ps1
 ```
 
-Open **[http://localhost:8080/](http://localhost:8080/)** in your browser.
-
-> **Tip:** Use the server URL, not `file://` — StudyBot and schedule APIs need the backend.
+Open **[http://localhost:8080/](http://localhost:8080/)** (not `file://`).
 
 ---
 
-## Project layout
-
-```
-student_schedule_maker/
-├── src/
-│   ├── study.c       # Core scheduler → output.json
-│   ├── server.c      # HTTP API + static files
-│   └── stopwatch.c   # Standalone stopwatch app
-├── public/
-│   ├── index.html    # Planner + StudyBot UI
-│   ├── stopwatch.html
-│   ├── heatmap.html
-│   └── css/shared.css
-├── bin/              # Built .exe files (after build.ps1)
-├── assistant_model.py
-├── assistant_api.py
-├── input_manager.py
-├── input.txt         # Example planner input
-├── build.ps1
-├── server.ps1
-└── requirements.txt
-```
-
----
-
-## `input.txt` format
+## `data/input.txt` format
 
 ```text
 <subjects> <totalDays>
 <name> <topicCount> <difficulty> <examDay> <confidence> <proficiency>
 <topic1>
-<topic2>
 ...
 <sessionsPerDay>
-<studyStyle> <peakHours> <maxSessionsBeforeBreak> <graspingPower>
-<missedDays>   # e.g. 0 or 3,5
+<studyStyle> <peakHours> <focusLimit> <graspingPower>
+<missedDays>
 ```
 
-**Example**
-
-```text
-2 10
-Maths 3 2 7 1 3
-Calculus
-Algebra
-Trigonometry
-Physics 2 3 10 3 1
-Kinematics
-Thermodynamics
-2
-2 1 2 2
-0
-```
+See `data/examples/input.sample.txt` for a full example. Older 4-field subject lines still work (defaults apply).
 
 | Field | Meaning |
 |-------|---------|
-| **confidence** | 1 Low → revise sooner · 2 Medium · 3 High → longer gap |
-| **proficiency** | 1 Weak · 2 Average · 3 Strong (fewer study slots) |
+| **confidence** | 1 Low · 2 Medium · 3 High (revision spacing) |
+| **proficiency** | 1 Weak · 2 Average · 3 Strong (time allocation) |
 | **studyStyle** | 1 Cramming · 2 Balanced · 3 Gradual |
 | **graspingPower** | 1 Slow · 2 Average · 3 Fast |
 
@@ -138,34 +119,28 @@ Thermodynamics
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/schedule` | Write `input.txt`, run scheduler, return plan |
-| `POST` | `/api/replan` | Apply progress from `state.json`, replan |
-| `POST` | `/api/chat` | StudyBot message → optional plan update |
-| `GET` | `/api/output` | Current `output.json` |
-| `GET` | `/api/input` | Current `input.txt` |
+| `POST` | `/api/schedule` | Write `data/input.txt`, run scheduler |
+| `POST` | `/api/replan` | Apply `data/state.json`, replan |
+| `POST` | `/api/chat` | StudyBot |
+| `GET` | `/api/output` | Current schedule JSON |
+| `GET` | `/api/input` | Current input text |
 
 ---
 
 ## Manual compile
 
 ```powershell
-gcc src\study.c -o bin\study.exe -Wall
-gcc src\stopwatch.c -o bin\stopwatch.exe -Wall
-gcc src\server.c -o bin\server.exe -lws2_32 -Wall
+gcc backend\c\study.c -o bin\study.exe -Wall
+gcc backend\c\stopwatch.c -o bin\stopwatch.exe -Wall
+gcc backend\c\server.c -o bin\server.exe -lws2_32 -Wall
 ```
 
----
-
-## Course context
-
-Built as a **Parallel & Systems Programming** course project: C for the performance-critical scheduler and server, Python for the LLM bridge, and a lightweight web front end.
+Run `bin\server.exe` from the **project root** so `data/` and `frontend/` paths resolve correctly.
 
 ---
 
 ## License
 
-MIT — use and adapt freely for learning and personal projects.
+MIT
 
-<p align="center">
-  <sub>Made with ☕ for students who want a plan, not just a to-do list.</sub>
-</p>
+<p align="center"><sub>Made for students who want a plan, not just a to-do list.</sub></p>

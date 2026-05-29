@@ -2,7 +2,7 @@
  * server.c - Study Planner HTTP Server (Windows / WinSock2)
  *
  * Compile:
- *   gcc src/server.c -o bin/server.exe -lws2_32 -Wall
+ *   gcc backend/c/server.c -o bin/server.exe -lws2_32 -Wall
  */
 
 #define WIN32_LEAN_AND_MEAN
@@ -18,6 +18,13 @@
 #define BUF_SIZE      65536
 #define FILE_BUF_SIZE (1 << 20)
 #define MAX_BODY      (1 << 17)
+
+#define DATA_INPUT    "data/input.txt"
+#define DATA_OUTPUT   "data/output.json"
+#define DATA_STATE    "data/state.json"
+#define CHAT_INPUT    "data/chat/chat_input.json"
+#define CHAT_OUTPUT   "data/chat/chat_output.json"
+#define FRONTEND_DIR  "frontend"
 
 static char *read_file(const char *path, long *out_len) {
     FILE *f = fopen(path, "rb");
@@ -126,7 +133,7 @@ static int run_assistant_python(void) {
     DWORD code = 1;
 
     GetCurrentDirectoryA(MAX_PATH, project_root);
-    snprintf(cmd, sizeof(cmd), "python assistant_api.py");
+    snprintf(cmd, sizeof(cmd), "python backend\\python\\assistant_api.py");
 
     ZeroMemory(&si, sizeof(si));
     ZeroMemory(&pi, sizeof(pi));
@@ -207,7 +214,7 @@ static char *json_escape_alloc(const char *raw, long len) {
 
 static void send_schedule_payload(SOCKET client, const char *missing_msg) {
     long flen = 0;
-    char *raw = read_file("output.json", &flen);
+    char *raw = read_file(DATA_OUTPUT, &flen);
     char *escaped;
     char *resp;
     size_t resp_size;
@@ -306,7 +313,7 @@ static int serve_public_file(SOCKET client, const char *path) {
         return 0;
     }
 
-    snprintf(local_path, sizeof(local_path), "public%s", rel);
+    snprintf(local_path, sizeof(local_path), FRONTEND_DIR "%s", rel);
     for (char *p = local_path; *p; p++) {
         if (*p == '/') *p = '\\';
     }
@@ -384,7 +391,7 @@ static void handle_request(SOCKET client) {
 
         if (strcmp(path, "/api/input") == 0) {
             long flen = 0;
-            char *raw = read_file("input.txt", &flen);
+            char *raw = read_file(DATA_INPUT, &flen);
             char *escaped;
             char *resp;
             size_t resp_size;
@@ -442,9 +449,9 @@ static void handle_request(SOCKET client) {
             goto cleanup;
         }
 
-        if (!write_file("input.txt", input_text, strlen(input_text))) {
+        if (!write_file(DATA_INPUT, input_text, strlen(input_text))) {
             free(input_text);
-            send_error(client, 500, "Internal Server Error", "Cannot write input.txt");
+            send_error(client, 500, "Internal Server Error", "Cannot write data/input.txt");
             goto cleanup;
         }
         free(input_text);
@@ -471,8 +478,8 @@ static void handle_request(SOCKET client) {
             goto cleanup;
         }
 
-        if (!write_file("state.json", body, (size_t)clen)) {
-            send_error(client, 500, "Internal Server Error", "Cannot write state.json");
+        if (!write_file(DATA_STATE, body, (size_t)clen)) {
+            send_error(client, 500, "Internal Server Error", "Cannot write data/state.json");
             goto cleanup;
         }
 
@@ -507,14 +514,14 @@ static void handle_request(SOCKET client) {
             goto cleanup;
         }
 
-        if (!write_file("chat_input.json", body, (size_t)clen)) {
-            send_error(client, 500, "Internal Server Error", "Cannot write chat_input.json");
+        if (!write_file(CHAT_INPUT, body, (size_t)clen)) {
+            send_error(client, 500, "Internal Server Error", "Cannot write chat input");
             goto cleanup;
         }
 
         exit_code = run_assistant_python();
         if (exit_code != 0) {
-            resp = read_file("chat_output.json", &flen);
+            resp = read_file(CHAT_OUTPUT, &flen);
             if (resp) {
                 send_json(client, 500, "Internal Server Error", resp);
                 free(resp);
@@ -524,9 +531,9 @@ static void handle_request(SOCKET client) {
             goto cleanup;
         }
 
-        resp = read_file("chat_output.json", &flen);
+        resp = read_file(CHAT_OUTPUT, &flen);
         if (!resp) {
-            send_error(client, 500, "Internal Server Error", "Assistant did not produce chat_output.json");
+            send_error(client, 500, "Internal Server Error", "Assistant did not produce chat output");
             goto cleanup;
         }
 

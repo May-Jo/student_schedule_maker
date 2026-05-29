@@ -1,10 +1,10 @@
 /*
  * study.c - Study Planner core scheduler
- * Reads input.txt, writes output.json.
+ * Reads data/input.txt, writes data/output.json.
  *
  * Modes:
- *   study.exe          normal mode, ignores state.json
- *   study.exe --replan reads state.json and regenerates remaining days
+ *   study.exe          normal mode, ignores data/state.json
+ *   study.exe --replan reads data/state.json and regenerates remaining days
  */
 
 #include <stdio.h>
@@ -15,6 +15,10 @@
 #define MAX_TOPICS   50
 #define MAX_DAYS     100
 #define STATE_BUF    65536
+
+#define DATA_INPUT   "data/input.txt"
+#define DATA_OUTPUT  "data/output.json"
+#define DATA_STATE   "data/state.json"
 
 typedef struct {
     char name[50];
@@ -280,7 +284,7 @@ static int line_is_preferences(const char *line, int *style, int *peak, int *max
 }
 
 void write_state(void) {
-    FILE *out = fopen("state.json", "w");
+    FILE *out = fopen(DATA_STATE, "w");
     int wroteSubject = 0;
 
     if (!out) return;
@@ -342,7 +346,7 @@ void write_state(void) {
 }
 
 void read_state(void) {
-    char *json = read_whole_file("state.json");
+    char *json = read_whole_file(DATA_STATE);
     const char *completed_start = NULL;
     const char *completed_end = NULL;
     const char *ratings_start = NULL;
@@ -400,11 +404,11 @@ void applyCompletedTopics(void) {
 }
 
 void generatePlan(void) {
-    FILE *out = fopen("output.json", "w");
+    FILE *out = fopen(DATA_OUTPUT, "w");
     int startDay = replanMode ? stateCurrentDay + 1 : 1;
 
     if (!out) {
-        fprintf(stderr, "Error: cannot open output.json for writing.\n");
+        fprintf(stderr, "Error: cannot open " DATA_OUTPUT " for writing.\n");
         exit(1);
     }
     if (startDay < 1) startDay = 1;
@@ -530,21 +534,21 @@ void generatePlan(void) {
     fprintf(out, "\n}\n");
     fclose(out);
     (void)peakHours;
-    printf("Study plan generated successfully -> output.json\n");
+    printf("Study plan generated successfully -> " DATA_OUTPUT "\n");
 }
 
 void readInput(void) {
-    FILE *fp = fopen("input.txt", "r");
+    FILE *fp = fopen(DATA_INPUT, "r");
     int actualCount = 0;
     char line[512];
 
     if (!fp) {
-        fprintf(stderr, "Error: cannot open input.txt.\n");
+        fprintf(stderr, "Error: cannot open " DATA_INPUT ".\n");
         exit(1);
     }
 
     if (fscanf(fp, "%d %d", &subjectCount, &totalDays) != 2) {
-        fprintf(stderr, "Error: malformed input.txt (line 1).\n");
+        fprintf(stderr, "Error: malformed " DATA_INPUT " (line 1).\n");
         fclose(fp);
         exit(1);
     }
